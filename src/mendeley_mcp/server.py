@@ -63,6 +63,7 @@ def get_credentials() -> MendeleyCredentials:
     client_secret = os.environ.get("MENDELEY_CLIENT_SECRET")
     access_token = os.environ.get("MENDELEY_ACCESS_TOKEN")
     refresh_token = os.environ.get("MENDELEY_REFRESH_TOKEN")
+    redirect_uri = os.environ.get("MENDELEY_REDIRECT_URI")
 
     if client_id and client_secret and (access_token or refresh_token):
         return MendeleyCredentials(
@@ -70,6 +71,7 @@ def get_credentials() -> MendeleyCredentials:
             client_secret=client_secret,
             access_token=access_token,
             refresh_token=refresh_token,
+            redirect_uri=redirect_uri,
         )
 
     # Fall back to saved credentials
@@ -81,6 +83,7 @@ def get_credentials() -> MendeleyCredentials:
             access_token=saved.get("access_token"),
             refresh_token=saved.get("refresh_token"),
             persist_tokens=True,
+            redirect_uri=saved.get("redirect_uri"),
         )
 
     raise ValueError(
@@ -1201,8 +1204,17 @@ def main() -> None:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Run the server with stdio transport (default for MCP)
-    mcp.run()
+    transport = os.environ.get("TRANSPORT", "stdio").lower()
+    if transport == "stdio":
+        mcp.run()
+    elif transport in {"http", "streamable-http"}:
+        mcp.run(
+            transport="streamable-http",
+            host=os.environ.get("HOST", "127.0.0.1"),
+            port=int(os.environ.get("PORT", "8000")),
+        )
+    else:
+        raise ValueError(f"Unsupported transport: {transport}")
 
 
 if __name__ == "__main__":

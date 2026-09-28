@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from click.testing import CliRunner
 
 import mendeley_mcp.auth as auth
 
@@ -76,3 +77,33 @@ def test_load_credentials_includes_client_secret_when_present(
     assert config["client_secret"] == "sec"
     assert config["access_token"] == "at"
     assert config["refresh_token"] == "rt"
+
+
+def test_login_rejects_callback_with_wrong_state(monkeypatch):
+    class CallbackServer:
+        def __init__(self, address, handler):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def handle_request(self):
+            auth._oauth_response = {"success": True, "code": "code", "state": "wrong"}
+
+    monkeypatch.setattr(auth.socketserver, "TCPServer", CallbackServer)
+    monkeypatch.setattr(auth.webbrowser, "open", lambda url: None)
+    monkeypatch.setattr(auth.secrets, "token_urlsafe", lambda size: "expected")
+
+    def exchange(*args, **kwargs):
+        raise AssertionError("A callback with the wrong state must not exchange its code")
+
+    monkeypatch.setattr(auth, "exchange_code_for_tokens", exchange)
+    result = CliRunner().invoke(
+        auth.cli,
+        ["login", "--client-id", "id", "--client-secret", "secret", "--port", "8001"],
+    )
+    assert result.exit_code == 1
+    assert "OAuth state mismatch" in result.output

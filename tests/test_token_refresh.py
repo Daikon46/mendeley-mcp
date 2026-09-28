@@ -1,12 +1,32 @@
 """Offline reproduction of token rotation followed by a server restart."""
 
 import json
+from urllib.parse import parse_qs
 
 import httpx
 import pytest
 
 from mendeley_mcp import auth
 from mendeley_mcp.client import MendeleyClient, MendeleyCredentials
+
+
+@pytest.mark.asyncio
+async def test_refresh_sends_registered_redirect_uri():
+    credentials = MendeleyCredentials(
+        "id", "secret", refresh_token="refresh", redirect_uri="http://localhost:8001/callback"
+    )
+
+    def upstream(request):
+        fields = parse_qs(request.content.decode())
+        assert fields["grant_type"] == ["refresh_token"]
+        assert fields["refresh_token"] == ["refresh"]
+        assert fields["redirect_uri"] == ["http://localhost:8001/callback"]
+        return httpx.Response(200, json={"access_token": "new-access"})
+
+    client = MendeleyClient(credentials)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(upstream)) as http:
+        client._client = http
+        assert await client.refresh_access_token() == "new-access"
 
 
 @pytest.mark.asyncio

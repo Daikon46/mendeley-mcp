@@ -50,6 +50,7 @@ class OAuthCallbackHandler(http.server.SimpleHTTPRequestHandler):
 
         if "code" in params:
             _oauth_response["code"] = params["code"][0]
+            _oauth_response["state"] = params.get("state", [None])[0]
             _oauth_response["success"] = True
             self.send_response(200)
             self.send_header("Content-type", "text/html")
@@ -95,6 +96,7 @@ def save_credentials(
     client_secret: str,
     access_token: str,
     refresh_token: str,
+    redirect_uri: str | None = None,
 ) -> None:
     """Save credentials securely."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
@@ -119,6 +121,9 @@ def save_credentials(
             "refresh_token": refresh_token,
             "use_keyring": False,
         }
+
+    if redirect_uri:
+        config["redirect_uri"] = redirect_uri
 
     with open(CREDENTIALS_FILE, "w") as f:
         json.dump(config, f, indent=2)
@@ -307,7 +312,7 @@ def login(client_id: str, client_secret: str, port: int) -> None:
     click.echo(f"If the browser doesn't open, visit:\n{auth_url}\n")
 
     # Start local server for callback
-    with socketserver.TCPServer(("", port), OAuthCallbackHandler) as httpd:
+    with socketserver.TCPServer(("127.0.0.1", port), OAuthCallbackHandler) as httpd:
         # Open browser in background
         threading.Thread(target=lambda: webbrowser.open(auth_url), daemon=True).start()
 
@@ -317,6 +322,11 @@ def login(client_id: str, client_secret: str, port: int) -> None:
     if not _oauth_response.get("success"):
         error = _oauth_response.get("error", "Unknown error")
         click.echo(f"\nAuthentication failed: {error}", err=True)
+        sys.exit(1)
+
+    callback_state = _oauth_response.get("state")
+    if not isinstance(callback_state, str) or not secrets.compare_digest(callback_state, state):
+        click.echo("\nAuthentication failed: OAuth state mismatch.", err=True)
         sys.exit(1)
 
     # Exchange code for tokens
@@ -343,6 +353,7 @@ def login(client_id: str, client_secret: str, port: int) -> None:
         client_secret=client_secret,
         access_token=tokens["access_token"],
         refresh_token=tokens["refresh_token"],
+        redirect_uri=redirect_uri,
     )
 
     storage_method = "system keyring" if KEYRING_AVAILABLE else "config file"

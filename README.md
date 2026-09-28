@@ -36,7 +36,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
    - Sign in with your Elsevier credentials
    - Click "Register a new app"
    - Set redirect URL to `http://localhost:8585/callback`
-   - Select "Authorization code" flow (not Legacy)
+   - Select the Elsevier authentication flow. The MCP login uses the authorization-code grant.
    - Note your **Client ID** and **Client Secret**
 
 ## Installation
@@ -75,6 +75,11 @@ git clone https://github.com/pallaprolus/mendeley-mcp.git
 cd mendeley-mcp
 docker build -t mendeley-mcp .
 ```
+
+The server uses stdio by default. For Streamable HTTP, set `TRANSPORT=streamable-http`,
+`HOST=0.0.0.0`, and `PORT=8001`; clients then connect to `/mcp` on that port.
+Keep the published host port on loopback unless access controls are provided, since
+the HTTP endpoint has no authentication and exposes library write tools.
 
 ### From source
 
@@ -392,6 +397,10 @@ export MENDELEY_MCP_MAX_FILE_BYTES="10485760"
 # Max characters of extracted text returned by mendeley_get_document_text (default 200000)
 export MENDELEY_MCP_MAX_TEXT_CHARS="200000"
 ```
+
+For authorization-code logins, set `MENDELEY_REDIRECT_URI` to the exact redirect
+URL registered for your app. The server includes it in token refresh requests.
+Pass the URL's port to `mendeley-auth login --port PORT` when logging in.
 
 Or in your MCP config:
 

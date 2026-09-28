@@ -37,6 +37,7 @@ class MendeleyCredentials:
     access_token: str | None = None
     refresh_token: str | None = None
     persist_tokens: bool = False
+    redirect_uri: str | None = None
 
     @classmethod
     def from_env(cls) -> MendeleyCredentials:
@@ -45,6 +46,7 @@ class MendeleyCredentials:
         client_secret = os.environ.get("MENDELEY_CLIENT_SECRET")
         access_token = os.environ.get("MENDELEY_ACCESS_TOKEN")
         refresh_token = os.environ.get("MENDELEY_REFRESH_TOKEN")
+        redirect_uri = os.environ.get("MENDELEY_REDIRECT_URI")
 
         if not client_id or not client_secret:
             raise ValueError(
@@ -57,6 +59,7 @@ class MendeleyCredentials:
             client_secret=client_secret,
             access_token=access_token,
             refresh_token=refresh_token,
+            redirect_uri=redirect_uri,
         )
 
 
@@ -281,7 +284,8 @@ class MendeleyClient:
 
     async def _refresh_access_token(self) -> str:
         """Validate and persist a token pair while holding the refresh lock."""
-        if not self.credentials.refresh_token:
+        refresh_token = self.credentials.refresh_token
+        if not refresh_token:
             raise ValueError("No refresh token available.")
 
         # Mendeley prefers HTTP Basic Auth
@@ -289,12 +293,16 @@ class MendeleyClient:
         auth_str = f"{self.credentials.client_id}:{self.credentials.client_secret}"
         auth_bytes = base64.b64encode(auth_str.encode()).decode()
 
+        token_data: dict[str, str] = {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+        }
+        if self.credentials.redirect_uri:
+            token_data["redirect_uri"] = self.credentials.redirect_uri
+
         response = await self.client.post(
             MENDELEY_TOKEN_URL,
-            data={
-                "grant_type": "refresh_token",
-                "refresh_token": self.credentials.refresh_token,
-            },
+            data=token_data,
             headers={
                 "Authorization": f"Basic {auth_bytes}",
                 "Content-Type": "application/x-www-form-urlencoded",
