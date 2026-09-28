@@ -69,6 +69,7 @@ class TestDocument:
             "abstract": "This is a test abstract.",
             "source": "Nature",
             "identifiers": {"doi": "10.1234/test"},
+            "authored": True,
         }
         doc = Document.from_api(api_data)
 
@@ -80,6 +81,7 @@ class TestDocument:
         assert doc.abstract == "This is a test abstract."
         assert doc.source == "Nature"
         assert doc.identifiers == {"doi": "10.1234/test"}
+        assert doc.authored is True
 
     def test_from_api_minimal(self):
         """Test creating document with minimal data."""
@@ -92,6 +94,7 @@ class TestDocument:
         assert doc.title == "Untitled"
         assert doc.type == "unknown"
         assert doc.authors == []
+        assert doc.authored is None
 
     def test_format_citation(self):
         """Test citation formatting."""
@@ -831,6 +834,33 @@ class TestDocumentPagination:
         assert len(documents) == 50
         assert len(seen) == 1
         assert seen[0].url.params["limit"] == "50"
+
+    @pytest.mark.anyio
+    async def test_get_documents_authored_filter_applies_before_limit(self, mendeley_client):
+        """A filtered list must find matches after the first API page."""
+        seen = []
+
+        def handler(request):
+            seen.append(request)
+            marker = int(request.url.params.get("marker", "0"))
+            docs = [
+                {"id": f"d{i}", "authored": i >= 500 and i % 2 == 0}
+                for i in range(marker, min(marker + 500, 510))
+            ]
+            headers = {}
+            if marker == 0:
+                headers["Link"] = (
+                    '<https://api.mendeley.com/documents?view=all&limit=500&marker=500>; rel="next"'
+                )
+            return httpx.Response(200, json=docs, headers=headers)
+
+        self._use_transport(mendeley_client, handler)
+        authored = await mendeley_client.get_documents(limit=3, authored=True)
+        other = await mendeley_client.get_documents(limit=2, authored=False)
+
+        assert [doc.id for doc in authored] == ["d500", "d502", "d504"]
+        assert [doc.id for doc in other] == ["d0", "d1"]
+        assert len(seen) == 4
 
     @pytest.mark.anyio
     async def test_search_library_pages_in_hundreds(self, mendeley_client):

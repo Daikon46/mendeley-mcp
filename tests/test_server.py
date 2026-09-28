@@ -39,6 +39,7 @@ def patched_server_client(
         delete_folder=AsyncMock(name="delete_folder"),
         add_document_to_folder=AsyncMock(name="add_document_to_folder"),
         remove_document_from_folder=AsyncMock(name="remove_document_from_folder"),
+        get_documents=AsyncMock(name="get_documents"),
         update_document=AsyncMock(name="update_document"),
         delete_document=AsyncMock(name="delete_document"),
         get_annotations=AsyncMock(name="get_annotations"),
@@ -514,6 +515,39 @@ async def test_mendeley_update_document_requires_at_least_one_field(
     assert "at least one field" in str(payload["error"]).lower()
     get_client.assert_not_awaited()
     client.update_document.assert_not_awaited()
+
+
+async def test_mendeley_list_documents_filters_authored(
+    patched_server_client: tuple[SimpleNamespace, AsyncMock],
+) -> None:
+    client, _ = patched_server_client
+    client.get_documents.return_value = [
+        Document(id="doc-123", title="Mine", type="journal", authors=[], authored=True)
+    ]
+
+    result = await server.mendeley_list_documents(authored=True)
+
+    assert json.loads(result)[0]["authored"] is True
+    client.get_documents.assert_awaited_once_with(
+        folder_id=None, limit=50, sort="last_modified", authored=True
+    )
+
+
+@pytest.mark.parametrize("authored", [True, False])
+async def test_mendeley_update_document_sets_authored(
+    patched_server_client: tuple[SimpleNamespace, AsyncMock], authored: bool
+) -> None:
+    client, _ = patched_server_client
+    client.update_document.return_value = Document(
+        id="doc-123", title="Mine", type="journal", authors=[], authored=authored
+    )
+
+    result = await server.mendeley_update_document(document_id="doc-123", authored=authored)
+
+    assert _decode_tool_result(result)["authored"] is authored
+    client.update_document.assert_awaited_once_with(
+        document_id="doc-123", updates={"authored": authored}
+    )
 
 
 async def test_mendeley_delete_document_returns_confirmation(

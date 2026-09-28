@@ -144,12 +144,12 @@ The Mendeley tools should now be available in Claude.
 |------|-------------|
 | `mendeley_search_library` | Search documents in your library |
 | `mendeley_get_document` | Get full details of a specific document |
-| `mendeley_list_documents` | List documents, optionally filtered by folder |
+| `mendeley_list_documents` | List documents, optionally filtered by folder or authored status |
 | `mendeley_list_folders` | List all folders/collections |
 | `mendeley_search_catalog` | Search Mendeley's global paper database |
 | `mendeley_get_by_doi` | Look up a paper by DOI |
 | `mendeley_add_document` | Add a new document to your library |
-| `mendeley_update_document` | Update bibliographic fields, tags, or keywords on an existing document |
+| `mendeley_update_document` | Update bibliographic fields, tags, keywords, or authored status on an existing document |
 | `mendeley_delete_document` | Permanently delete a document from your library |
 | `mendeley_create_folder` | Create a folder in your library, optionally under a parent folder or group |
 | `mendeley_rename_folder` | Rename an existing folder |
@@ -196,9 +196,11 @@ Use this after you already know the library `document_id`.
 Use this to browse the library instead of searching by keyword.
 
 - Can scope results to a specific `folder_id`
+- Set `authored=true` for My Publications, `authored=false` for other references, or omit it for all references
 - Supports sorting by `last_modified`, `created`, or `title`
 - Returns up to `limit` documents (default 50), paging through the library as needed, so a large `limit` returns the whole library
 - Useful for reviewing recent additions or the contents of one collection
+- The authored filter is applied before the result limit
 
 ### `mendeley_list_folders`
 
@@ -236,7 +238,8 @@ Use this to create a library entry from metadata you already have.
 
 Use this to fix or enrich an existing library entry.
 
-- Updates only the fields you supply (title, type, authors, year, source, abstract, identifiers, tags, keywords)
+- Updates only the fields you supply (title, type, authors, year, source, abstract, identifiers, tags, keywords, authored)
+- Set `authored=true` to add the document to My Publications or `authored=false` to remove it
 - A supplied `tags` or `keywords` list replaces the existing list; pass `[]` to clear it. To add a tag, read the current tags with `mendeley_get_document` and pass the combined list. Mendeley stores tags as a set and returns them sorted, not in the order sent
 - Returns the document's state after the update
 - Useful for correcting a wrong year, adding a missing abstract, fixing identifiers, or tagging papers during a literature review

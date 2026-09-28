@@ -125,6 +125,7 @@ def format_document(doc: Document) -> dict[str, Any]:
         "identifiers": doc.identifiers,
         "keywords": doc.keywords,
         "tags": doc.tags,
+        "authored": doc.authored,
         "has_pdf": doc.file_attached,
         "citation": doc.format_citation(),
     }
@@ -344,14 +345,15 @@ async def mendeley_get_document(
 @mcp.tool(
     title="List Documents",
     description=(
-        "List documents from the library, optionally filtered by folder and ordered by "
-        "last modification, creation date, or title."
+        "List documents from the library, optionally filtered by folder or authored "
+        "status (My Publications), and ordered by last modification, creation date, or title."
     ),
 )
 async def mendeley_list_documents(
     folder_id: str | None = None,
     limit: int = 50,
     sort_by: str = "last_modified",
+    authored: bool | None = None,
 ) -> str:
     """
     List documents in your library or a specific folder.
@@ -360,6 +362,7 @@ async def mendeley_list_documents(
         folder_id: Optional folder ID to filter by
         limit: Maximum number of results (default: 50)
         sort_by: Sort field - 'last_modified', 'created', or 'title'
+        authored: True for My Publications, False for other references, or omit for all
 
     Returns:
         JSON array of documents
@@ -371,11 +374,10 @@ async def mendeley_list_documents(
         sort_by = "last_modified"
 
     try:
-        documents = await client.get_documents(
-            folder_id=folder_id,
-            limit=limit,
-            sort=sort_by,
-        )
+        options: dict[str, Any] = {"folder_id": folder_id, "limit": limit, "sort": sort_by}
+        if authored is not None:
+            options["authored"] = authored
+        documents = await client.get_documents(**options)
         results = [format_document(doc) for doc in documents]
         return _json_response(results)
     except Exception as e:
@@ -724,7 +726,7 @@ async def mendeley_remove_document_from_folder(
     title="Update Document",
     description=(
         "Update fields on an existing library document, such as title, authors, year, "
-        "source, abstract, identifiers, tags, or keywords. Only supplied fields change; "
+        "source, abstract, identifiers, tags, keywords, or authored status. Only supplied fields change; "
         "a supplied list of tags or keywords replaces the existing list."
     ),
 )
@@ -739,6 +741,7 @@ async def mendeley_update_document(
     identifiers: dict[str, str] | None = None,
     tags: list[str] | None = None,
     keywords: list[str] | None = None,
+    authored: bool | None = None,
 ) -> str:
     """
     Update fields on an existing document in your library.
@@ -755,6 +758,7 @@ async def mendeley_update_document(
         tags: User tags. Replaces the document's current tags; pass [] to clear them.
             To add a tag, read the current tags first and pass the combined list.
         keywords: Author keywords. Same replace semantics as tags.
+        authored: True to mark as My Publications, False to remove that mark.
 
     Returns:
         JSON object with the updated document
@@ -780,6 +784,8 @@ async def mendeley_update_document(
             updates["tags"] = _string_list(tags, "tags")
         if keywords is not None:
             updates["keywords"] = _string_list(keywords, "keywords")
+        if authored is not None:
+            updates["authored"] = authored
         if not updates:
             raise ValueError("At least one field to update must be provided.")
 

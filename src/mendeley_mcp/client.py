@@ -78,6 +78,7 @@ class Document:
     keywords: list[str] | None = None
     tags: list[str] | None = None
     folder_uuids: list[str] | None = None
+    authored: bool | None = None
     file_attached: bool = False
     created: str | None = None
     last_modified: str | None = None
@@ -97,6 +98,7 @@ class Document:
             keywords=data.get("keywords"),
             tags=data.get("tags"),
             folder_uuids=data.get("folder_uuids"),
+            authored=data.get("authored"),
             file_attached=data.get("file_attached", False),
             created=data.get("created"),
             last_modified=data.get("last_modified"),
@@ -428,8 +430,9 @@ class MendeleyClient:
         limit: int = 50,
         sort: str = "last_modified",
         order: str = "desc",
+        authored: bool | None = None,
     ) -> list[Document]:
-        """Get documents from the library or a folder, paging up to limit results."""
+        """Get documents, optionally filtering by the user's authorship flag."""
         params: dict[str, Any] = {
             "limit": min(limit, MAX_PAGE_LIMIT),
             "sort": sort,
@@ -444,8 +447,12 @@ class MendeleyClient:
             "document list",
             accept=DOCUMENT_MEDIA_TYPE,
             params=params,
-            max_items=limit,
+            # The API does not support an authored query parameter. Fetch every
+            # page before applying that filter so the result limit is accurate.
+            max_items=limit if authored is None else None,
         )
+        if authored is not None:
+            data = [doc for doc in data if doc.get("authored") is authored][:limit]
         return [Document.from_api(doc) for doc in data]
 
     async def get_document(self, document_id: str) -> Document:
