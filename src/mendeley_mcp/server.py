@@ -726,7 +726,8 @@ async def mendeley_remove_document_from_folder(
     title="Update Document",
     description=(
         "Update fields on an existing library document, such as title, authors, year, "
-        "source, abstract, identifiers, tags, keywords, or authored status. Only supplied fields change; "
+        "source, abstract, identifiers, tags, keywords, or authored status. "
+        "Only supplied fields change; "
         "a supplied list of tags or keywords replaces the existing list."
     ),
 )
