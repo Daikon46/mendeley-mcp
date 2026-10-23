@@ -11,7 +11,6 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI version](https://img.shields.io/pypi/v/mendeley-mcp.svg)](https://pypi.org/project/mendeley-mcp/)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/mendeley-mcp?period=total&units=international_system&left_color=black&right_color=green&left_text=downloads)](https://pepy.tech/project/mendeley-mcp)
-[![Docker](https://img.shields.io/badge/docker-available-blue.svg)](https://github.com/pallaprolus/mendeley-mcp/pkgs/container/mendeley-mcp)
 
 <a href="https://glama.ai/mcp/servers/@pallaprolus/mendeley-mcp">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@pallaprolus/mendeley-mcp/badge" alt="Mendeley MCP server on Glama" />
@@ -59,28 +58,6 @@ uv tool install mendeley-mcp
 > pinned version no longer receives upstream security fixes; Apple Silicon,
 > Linux, and Windows are unaffected and get the latest release.
 
-### Using Docker
-
-```bash
-docker run -it \
-  -e MENDELEY_CLIENT_ID="your-client-id" \
-  -e MENDELEY_CLIENT_SECRET="your-client-secret" \
-  -e MENDELEY_REFRESH_TOKEN="your-refresh-token" \
-  ghcr.io/pallaprolus/mendeley-mcp
-```
-
-Or build locally:
-```bash
-git clone https://github.com/pallaprolus/mendeley-mcp.git
-cd mendeley-mcp
-docker build -t mendeley-mcp .
-```
-
-The server uses stdio by default. For Streamable HTTP, set `TRANSPORT=streamable-http`,
-`HOST=0.0.0.0`, and `PORT=8001`; clients then connect to `/mcp` on that port.
-Keep the published host port on loopback unless access controls are provided, since
-the HTTP endpoint has no authentication and exposes library write tools.
-
 ### From source
 
 ```bash
@@ -88,6 +65,11 @@ git clone https://github.com/pallaprolus/mendeley-mcp.git
 cd mendeley-mcp
 pip install -e .
 ```
+
+The MCP server launches locally over stdio by default. For deployments where stdio is
+not practical, a direct process can use `TRANSPORT=streamable-http` and a loopback
+`HOST`/`PORT`; connect to `/mcp`. Do not expose the HTTP endpoint without upstream
+authentication and network controls: it has library write tools and no built-in auth.
 
 ## Quick Start
 
@@ -98,6 +80,9 @@ Run the authentication wizard:
 ```bash
 mendeley-auth login
 ```
+
+The browser callback during login is local OAuth only; the MCP server still connects
+to your client over stdio, without a persistent HTTP service.
 
 This will:
 1. Prompt for your Client ID and Client Secret
